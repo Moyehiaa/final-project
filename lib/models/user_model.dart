@@ -1,33 +1,45 @@
-import 'user_role.dart';
+enum UserRole { deaf, caregiver }
 
 class UserModel {
-  final String id;
+  final String uid;
   final String name;
   final String email;
   final UserRole role;
-  final bool isActive;
+  final String? linkedUserEmail;
+  final String? linkedUserId;
+  final String linkStatus;
 
-  const UserModel({
-    required this.id,
+  UserModel({
+    required this.uid,
     required this.name,
     required this.email,
     required this.role,
-    required this.isActive,
+    this.linkedUserEmail,
+    this.linkedUserId,
+    this.linkStatus = 'none',
   });
 
-  UserModel copyWith({
-    String? id,
-    String? name,
-    String? email,
-    UserRole? role,
-    bool? isActive,
-  }) {
+  factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      email: email ?? this.email,
-      role: role ?? this.role,
-      isActive: isActive ?? this.isActive,
+      uid: map['uid'] ?? '',
+      name: map['name'] ?? '',
+      email: map['email'] ?? '',
+      role: map['role'] == 'caregiver' ? UserRole.caregiver : UserRole.deaf,
+      linkedUserEmail: map['linkedUserEmail'],
+      linkedUserId: map['linkedUserId'],
+      linkStatus: map['linkStatus'] ?? 'none',
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'uid': uid,
+      'name': name,
+      'email': email.toLowerCase().trim(),
+      'role': role.name,
+      'linkedUserEmail': linkedUserEmail?.toLowerCase().trim(),
+      'linkedUserId': linkedUserId,
+      'linkStatus': linkStatus,
+    };
   }
 }

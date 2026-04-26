@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "439411922472",
+    "project_id": "final-project-61103",
+    "storage_bucket": "final-project-61103.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:439411922472:android:4479bedad336ce1dfd071d",
+        "android_client_info": {
+          "package_name": "com.example.sound2sign"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDokXZ8YIJby1HXiPlZjEYVLRfYdpbzaAw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

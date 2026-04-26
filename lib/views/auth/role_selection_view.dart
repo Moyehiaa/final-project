@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+
 import '../../const.dart';
-import '../../models/user_role.dart';
-import '../../viewmodels/auth_viewmodel.dart';
-import '../../widgets/primary_button.dart';
-import '../../widgets/role_card.dart';
+import '../../models/user_model.dart';
 import 'login_view.dart';
 import 'register_view.dart';
 
@@ -13,68 +10,164 @@ class RoleSelectionView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthViewModel>();
-
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: Scaffold(
-        backgroundColor: kBg,
-        appBar: AppBar(
-          backgroundColor: kBg,
-          elevation: 0,
-          title: const Text(
-            "Choose your role",
-            style: TextStyle(color: kText, fontWeight: FontWeight.w900),
-          ),
-          centerTitle: false,
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
+    return Scaffold(
+      backgroundColor: kBg,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              RoleCard(
+              const SizedBox(height: 30),
+
+              const Text(
+                "Choose your role",
+                style: TextStyle(
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                  color: kText,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              const Text(
+                "Select how you want to use Sound2Sign.",
+                style: TextStyle(fontSize: 15, color: kText2, height: 1.4),
+              ),
+
+              const SizedBox(height: 30),
+
+              _RoleCard(
                 icon: Icons.hearing_disabled_rounded,
-                title: "Deaf user",
-                subtitle: "I need sound awareness and sign language support.",
-                selected: auth.selectedRole == UserRole.deaf,
-                onTap: () => auth.selectRole(UserRole.deaf),
+                title: "I am Deaf User",
+                subtitle: "Detect sounds around me and notify my caregiver.",
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RegisterView(role: UserRole.deaf),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 12),
-              RoleCard(
-                icon: Icons.family_restroom_rounded,
-                title: "Caregiver",
-                subtitle: "I monitor alerts and chat to support the user.",
-                selected: auth.selectedRole == UserRole.caregiver,
-                onTap: () => auth.selectRole(UserRole.caregiver),
+
+              const SizedBox(height: 16),
+
+              _RoleCard(
+                icon: Icons.volunteer_activism_rounded,
+                title: "I am Caregiver",
+                subtitle: "Receive alerts from the deaf user and support them.",
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const RegisterView(role: UserRole.caregiver),
+                    ),
+                  );
+                },
               ),
+
               const Spacer(),
 
-              PrimaryButton(
-                label: "Continue to Login",
-                onPressed: auth.selectedRole == null
-                    ? null
-                    : () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const LoginView()),
-                      ),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton(
-                onPressed: auth.selectedRole == null
-                    ? null
-                    : () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const RegisterView()),
-                      ),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginView()),
+                    );
+                  },
+                  child: const Text(
+                    "Already have an account? Login",
+                    style: TextStyle(
+                      color: kAccent,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-                child: const Text("Create an account"),
               ),
-              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _RoleCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: kSurface,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.black.withOpacity(0.06)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: kAccent.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Icon(icon, color: kAccent, size: 30),
+              ),
+
+              const SizedBox(width: 14),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: kText,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: kText2,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 18,
+                color: kText2,
+              ),
             ],
           ),
         ),

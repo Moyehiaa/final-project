@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sound2sign/viewmodels/sound_detection_viewmodel.dart';
+
 import 'const.dart';
 import 'viewmodels/auth_viewmodel.dart';
-import 'views/onboarding/onboarding_view.dart';
+import 'viewmodels/sound_detection_viewmodel.dart';
+import 'views/auth/auth_gate.dart';
 
 class Sound2SignApp extends StatelessWidget {
   const Sound2SignApp({super.key});
@@ -17,13 +18,9 @@ class Sound2SignApp extends StatelessWidget {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: "Sound2Sign",
-        theme: ThemeData(
-          scaffoldBackgroundColor: kBg,
-          colorScheme: ColorScheme.fromSeed(seedColor: kPrimary),
-          useMaterial3: true,
-        ),
-        home: const OnboardingView(),
+        title: 'Sound2Sign',
+        theme: ThemeData(useMaterial3: true, scaffoldBackgroundColor: kBg),
+        home: const AuthGate(),
       ),
     );
   }
