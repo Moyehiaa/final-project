@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../const.dart';
 
 class ChatInputBar extends StatefulWidget {
-  final void Function(String) onSend;
+  final Future<void> Function(String) onSend;
+
   const ChatInputBar({super.key, required this.onSend});
 
   @override
@@ -10,12 +12,27 @@ class ChatInputBar extends StatefulWidget {
 }
 
 class _ChatInputBarState extends State<ChatInputBar> {
-  final _c = TextEditingController();
+  final _controller = TextEditingController();
+  bool _isSending = false;
 
   @override
   void dispose() {
-    _c.dispose();
+    _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _send() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _isSending) return;
+
+    setState(() => _isSending = true);
+
+    await widget.onSend(text);
+
+    if (!mounted) return;
+
+    _controller.clear();
+    setState(() => _isSending = false);
   }
 
   @override
@@ -32,17 +49,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
         ),
         child: Row(
           children: [
-            IconButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Voice (UI only)")),
-                );
-              },
-              icon: const Icon(Icons.mic_rounded, color: kAccent),
-            ),
             Expanded(
               child: TextField(
-                controller: _c,
+                controller: _controller,
+                minLines: 1,
+                maxLines: 4,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _send(),
                 decoration: InputDecoration(
                   hintText: "Type a message…",
                   filled: true,
@@ -56,10 +69,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             ),
             const SizedBox(width: 10),
             ElevatedButton(
-              onPressed: () {
-                widget.onSend(_c.text);
-                _c.clear();
-              },
+              onPressed: _isSending ? null : _send,
               style: ElevatedButton.styleFrom(
                 backgroundColor: kPrimary,
                 foregroundColor: Colors.white,
@@ -67,8 +77,18 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 elevation: 0,
+                padding: const EdgeInsets.all(14),
               ),
-              child: const Icon(Icons.send_rounded, size: 18),
+              child: _isSending
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.send_rounded, size: 18),
             ),
           ],
         ),

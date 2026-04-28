@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import 'package:sound2sign/widgets/link_manager_card.dart';
+import '../../widgets/link_request_card.dart';
 import '../../const.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 
@@ -38,6 +39,11 @@ class CaregiverHomeTab extends StatelessWidget {
               color: kText,
             ),
           ),
+          LinkManagerCard(currentUserId: user.uid),
+
+          const SizedBox(height: 6),
+
+          LinkRequestCard(currentUserId: user.uid),
 
           const SizedBox(height: 6),
 

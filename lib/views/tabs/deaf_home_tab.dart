@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import 'package:sound2sign/widgets/link_manager_card.dart';
+import '../../widgets/link_request_card.dart';
 import '../../const.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/sound_detection_viewmodel.dart';
@@ -51,6 +52,11 @@ class HomeTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            SizedBox(height: 20),
+            LinkManagerCard(currentUserId: user.uid),
+            SizedBox(height: 20),
+            LinkRequestCard(currentUserId: user.uid),
+
             // 🔥 caregiver card
             const Text(
               "Your Caregiver",
