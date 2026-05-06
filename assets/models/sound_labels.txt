@@ -1,0 +1,10 @@
+alarm
+baby_cry
+bell
+dog
+glass_breaking
+knock
+other
+phone_ring
+siren
+speech

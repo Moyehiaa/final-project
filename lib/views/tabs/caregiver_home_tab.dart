@@ -1,80 +1,247 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sound2sign/widgets/link_manager_card.dart';
-import '../../widgets/link_request_card.dart';
+
 import '../../const.dart';
+import '../../services/local_notification_service.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 
-class CaregiverHomeTab extends StatelessWidget {
+class CaregiverHomeTab extends StatefulWidget {
   const CaregiverHomeTab({super.key});
+
+  @override
+  State<CaregiverHomeTab> createState() => _CaregiverHomeTabState();
+}
+
+class _CaregiverHomeTabState extends State<CaregiverHomeTab> {
+  final Set<String> _notifiedAlertIds = {};
 
   @override
   Widget build(BuildContext context) {
     final authVm = context.watch<AuthViewModel>();
-    final user = authVm.currentUser;
+    final caregiver = authVm.currentUser;
 
-    if (user == null) {
-      return const Center(child: Text("User not found"));
+    if (caregiver == null) {
+      return const Scaffold(body: Center(child: Text("User not found")));
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+    return Scaffold(
+      backgroundColor: kBg,
+      appBar: AppBar(
+        backgroundColor: kBg,
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Caregiver",
+              style: TextStyle(fontSize: 14, color: kText2),
+            ),
+            Text(
+              caregiver.name,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: kText,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('alerts')
+            .where('caregiverId', isEqualTo: caregiver.uid)
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(
+              child: Text(
+                "Could not load alerts",
+                style: TextStyle(color: Colors.red),
+              ),
+            );
+          }
+
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final alerts = snapshot.data!.docs;
+
+          _notifyForNewestUnreadAlerts(alerts);
+
+          if (alerts.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: _EmptyAlertsCard(),
+            );
+          }
+
+          final latest = alerts.first;
+          final latestData = latest.data();
+          final latestInfo = _SoundUiInfo.fromLabel(
+            latestData['soundType'] ?? '',
+          );
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _LatestAlertCard(data: latestData, info: latestInfo),
+
+                const SizedBox(height: 24),
+
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        "Recent Alerts",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: kText,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _markAllAsRead(alerts),
+                      icon: const Icon(Icons.done_all_rounded, size: 18),
+                      label: const Text("Mark read"),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                ...alerts.map((doc) {
+                  final data = doc.data();
+                  final info = _SoundUiInfo.fromLabel(data['soundType'] ?? '');
+                  final isRead = data['isRead'] == true;
+
+                  return _AlertListItem(
+                    docId: doc.id,
+                    data: data,
+                    info: info,
+                    isRead: isRead,
+                  );
+                }),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _notifyForNewestUnreadAlerts(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> alerts,
+  ) {
+    for (final doc in alerts.take(3)) {
+      final data = doc.data();
+      final isRead = data['isRead'] == true;
+      final soundType = data['soundType'] ?? '';
+      final confidence = (data['confidence'] ?? 0.0).toDouble();
+
+      if (isRead) continue;
+      if (_notifiedAlertIds.contains(doc.id)) continue;
+      if (soundType.isEmpty) continue;
+
+      _notifiedAlertIds.add(doc.id);
+
+      LocalNotificationService.showSoundAlert(
+        label: soundType,
+        confidence: confidence,
+      );
+    }
+  }
+
+  Future<void> _markAllAsRead(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> alerts,
+  ) async {
+    final batch = FirebaseFirestore.instance.batch();
+
+    for (final doc in alerts) {
+      batch.update(doc.reference, {'isRead': true});
+    }
+
+    await batch.commit();
+  }
+}
+
+class _LatestAlertCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final _SoundUiInfo info;
+
+  const _LatestAlertCard({required this.data, required this.info});
+
+  @override
+  Widget build(BuildContext context) {
+    final deafName = data['deafUserName'] ?? 'Deaf user';
+    final confidence = (data['confidence'] ?? 0.0).toDouble();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: info.color,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: info.color.withOpacity(0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Welcome back",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: kText,
+          Container(
+            width: 106,
+            height: 106,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.22),
+              shape: BoxShape.circle,
             ),
+            child: Icon(info.icon, size: 58, color: Colors.white),
           ),
-          Text(
-            user.name.toUpperCase(),
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: kText,
-            ),
-          ),
-          LinkManagerCard(currentUserId: user.uid),
-
-          const SizedBox(height: 6),
-
-          LinkRequestCard(currentUserId: user.uid),
-
-          const SizedBox(height: 6),
-
-          const Text(
-            "Monitor the linked deaf user and receive sound alerts.",
-            style: TextStyle(color: kText2, height: 1.4),
-          ),
-
           const SizedBox(height: 18),
-
-          _LinkedDeafUserCard(
-            linkedUserId: user.linkedUserId,
-            linkedUserEmail: user.linkedUserEmail,
-          ),
-
-          const SizedBox(height: 22),
-
-          const Text(
-            "Notifications",
-            style: TextStyle(
-              fontSize: 18,
+          Text(
+            info.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 32,
               fontWeight: FontWeight.w900,
-              color: kText,
+              letterSpacing: 1,
+              color: Colors.white,
             ),
           ),
-
-          const SizedBox(height: 10),
-
-          _DeafNotificationsList(
-            caregiverId: user.uid,
-            deafUserId: user.linkedUserId,
+          const SizedBox(height: 8),
+          Text(
+            "$deafName needs attention",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Colors.white.withOpacity(0.95),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.22),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Text(
+              "Confidence ${(confidence * 100).toStringAsFixed(0)}%",
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
         ],
       ),
@@ -82,301 +249,201 @@ class CaregiverHomeTab extends StatelessWidget {
   }
 }
 
-class _LinkedDeafUserCard extends StatelessWidget {
-  final String? linkedUserId;
-  final String? linkedUserEmail;
+class _AlertListItem extends StatelessWidget {
+  final String docId;
+  final Map<String, dynamic> data;
+  final _SoundUiInfo info;
+  final bool isRead;
 
-  const _LinkedDeafUserCard({
-    required this.linkedUserId,
-    required this.linkedUserEmail,
+  const _AlertListItem({
+    required this.docId,
+    required this.data,
+    required this.info,
+    required this.isRead,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (linkedUserId == null || linkedUserId!.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: kSurface,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.black.withOpacity(0.06)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.link_off_rounded, color: Colors.orange, size: 34),
-            const SizedBox(height: 12),
-            const Text(
-              "No deaf user connected yet",
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 17,
-                color: kText,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              linkedUserEmail == null || linkedUserEmail!.isEmpty
-                  ? "You are not linked to any deaf user."
-                  : "Waiting for: $linkedUserEmail",
-              style: const TextStyle(color: kText2, height: 1.4),
-            ),
-          ],
-        ),
-      );
-    }
+    final deafName = data['deafUserName'] ?? 'Deaf user';
+    final confidence = (data['confidence'] ?? 0.0).toDouble();
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(linkedUserId)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _loadingCard();
-        }
-
-        if (!snapshot.hasData || !snapshot.data!.exists) {
-          return _errorCard("Linked deaf user profile not found");
-        }
-
-        final data = snapshot.data!.data() ?? {};
-
-        final name = data['name'] ?? 'Deaf User';
-        final email = data['email'] ?? '';
-        final isOnline = data['isOnline'] == true;
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: kSurface,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.black.withOpacity(0.06)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: kAccent.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Icon(
-                  Icons.hearing_disabled_rounded,
-                  color: kAccent,
-                  size: 32,
-                ),
-              ),
-
-              const SizedBox(width: 14),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        color: kText,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      email,
-                      style: const TextStyle(color: kText2, fontSize: 13),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.circle,
-                          size: 12,
-                          color: isOnline ? Colors.green : Colors.grey,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          isOnline ? "Online" : "Offline",
-                          style: TextStyle(
-                            color: isOnline ? Colors.green : kText2,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _loadingCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: kSurface,
-        borderRadius: BorderRadius.circular(22),
+        color: isRead ? kSurface : info.color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isRead
+              ? Colors.black.withOpacity(0.05)
+              : info.color.withOpacity(0.35),
+        ),
       ),
-      child: const Center(child: CircularProgressIndicator()),
-    );
-  }
-
-  Widget _errorCard(String message) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: kSurface,
-        borderRadius: BorderRadius.circular(22),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: info.color,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(info.icon, color: Colors.white, size: 30),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  info.title,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: kText,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "$deafName • ${(confidence * 100).toStringAsFixed(0)}%",
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: kText2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () {
+              FirebaseFirestore.instance.collection('alerts').doc(docId).update(
+                {'isRead': true},
+              );
+            },
+            icon: Icon(
+              isRead
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: isRead ? Colors.green : kText2,
+            ),
+          ),
+        ],
       ),
-      child: Text(message, style: const TextStyle(color: Colors.red)),
     );
   }
 }
 
-class _DeafNotificationsList extends StatelessWidget {
-  final String caregiverId;
-  final String? deafUserId;
-
-  const _DeafNotificationsList({
-    required this.caregiverId,
-    required this.deafUserId,
-  });
+class _EmptyAlertsCard extends StatelessWidget {
+  const _EmptyAlertsCard();
 
   @override
   Widget build(BuildContext context) {
-    if (deafUserId == null || deafUserId!.isEmpty) {
-      return _emptyBox("No notifications because no deaf user is connected.");
-    }
-
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('alerts')
-          .where('toUserId', isEqualTo: caregiverId)
-          .orderBy('createdAt', descending: true)
-          .limit(20)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.all(20),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return _emptyBox(
-            "Could not load notifications. Check Firestore index/rules.",
-          );
-        }
-
-        final docs = snapshot.data?.docs ?? [];
-
-        if (docs.isEmpty) {
-          return _emptyBox("No sound notifications yet.");
-        }
-
-        return Column(
-          children: docs.map((doc) {
-            final data = doc.data();
-
-            final message = data['message'] ?? 'Sound detected';
-            final label = data['soundLabel'] ?? '';
-            final score = data['score'];
-            final seen = data['seen'] == true;
-
-            final timestamp = data['createdAt'];
-            String timeText = '';
-
-            if (timestamp is Timestamp) {
-              final time = timestamp.toDate();
-              timeText =
-                  "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
-            }
-
-            return Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: seen ? kSurface : kAccent.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: seen
-                      ? Colors.black.withOpacity(0.05)
-                      : kAccent.withOpacity(0.25),
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    seen
-                        ? Icons.notifications_none_rounded
-                        : Icons.notifications_active_rounded,
-                    color: seen ? kText2 : kAccent,
-                  ),
-
-                  const SizedBox(width: 12),
-
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          message,
-                          style: const TextStyle(
-                            color: kText,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-
-                        const SizedBox(height: 5),
-
-                        Text(
-                          "$label ${score == null ? '' : '(${score.toStringAsFixed(2)})'}",
-                          style: const TextStyle(color: kText2, fontSize: 12),
-                        ),
-
-                        if (timeText.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            timeText,
-                            style: const TextStyle(color: kText2, fontSize: 12),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        );
-      },
-    );
-  }
-
-  Widget _emptyBox(String text) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: kSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        borderRadius: BorderRadius.circular(24),
       ),
-      child: Text(text, style: const TextStyle(color: kText2, height: 1.4)),
+      child: const Column(
+        children: [
+          Icon(Icons.notifications_none_rounded, size: 64, color: kText2),
+          SizedBox(height: 14),
+          Text(
+            "No alerts yet",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: kText,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            "When the deaf user detects an important sound, it will appear here.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: kText2, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
     );
+  }
+}
+
+class _SoundUiInfo {
+  final String title;
+  final IconData icon;
+  final Color color;
+
+  const _SoundUiInfo({
+    required this.title,
+    required this.icon,
+    required this.color,
+  });
+
+  factory _SoundUiInfo.fromLabel(String label) {
+    switch (label) {
+      case 'alarm':
+        return const _SoundUiInfo(
+          title: 'ALARM',
+          icon: Icons.warning_amber_rounded,
+          color: Color(0xFFD32F2F),
+        );
+      case 'siren':
+        return const _SoundUiInfo(
+          title: 'SIREN',
+          icon: Icons.local_police_rounded,
+          color: Color(0xFFC62828),
+        );
+      case 'baby_cry':
+        return const _SoundUiInfo(
+          title: 'BABY CRY',
+          icon: Icons.child_care_rounded,
+          color: Color(0xFF1976D2),
+        );
+      case 'glass_breaking':
+        return const _SoundUiInfo(
+          title: 'GLASS BREAKING',
+          icon: Icons.broken_image_rounded,
+          color: Color(0xFFB71C1C),
+        );
+      case 'knock':
+        return const _SoundUiInfo(
+          title: 'KNOCK',
+          icon: Icons.front_hand_rounded,
+          color: Color(0xFF795548),
+        );
+      case 'bell':
+        return const _SoundUiInfo(
+          title: 'BELL',
+          icon: Icons.notifications_active_rounded,
+          color: Color(0xFFF9A825),
+        );
+      case 'phone_ring':
+        return const _SoundUiInfo(
+          title: 'PHONE RING',
+          icon: Icons.phone_in_talk_rounded,
+          color: Color(0xFF2E7D32),
+        );
+      case 'dog':
+        return const _SoundUiInfo(
+          title: 'DOG',
+          icon: Icons.pets_rounded,
+          color: Color(0xFFEF6C00),
+        );
+      case 'speech':
+        return const _SoundUiInfo(
+          title: 'SPEECH',
+          icon: Icons.record_voice_over_rounded,
+          color: Color(0xFF616161),
+        );
+      default:
+        return const _SoundUiInfo(
+          title: 'SOUND ALERT',
+          icon: Icons.notifications_active_rounded,
+          color: kAccent,
+        );
+    }
   }
 }

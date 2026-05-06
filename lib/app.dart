@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sound2sign/views/onboarding/onboarding_view.dart';
 
 import 'const.dart';
 import 'viewmodels/auth_viewmodel.dart';
@@ -20,7 +21,7 @@ class Sound2SignApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: 'Sound2Sign',
         theme: ThemeData(useMaterial3: true, scaffoldBackgroundColor: kBg),
-        home: const AuthGate(),
+        home: const OnboardingView(),
       ),
     );
   }

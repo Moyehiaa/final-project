@@ -69,6 +69,8 @@ flutter:
   assets:
     - assets/onboarding/
     - assets/models/yamnet.tflite
+    - assets/models/sound_classifier.tflite
+    - assets/models/sound_labels.txt
     - assets/models/yamnet_class_map.csv
 
   #   - images/a_dot_ham.jpeg
