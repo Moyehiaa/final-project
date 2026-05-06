@@ -5,7 +5,6 @@ import 'package:sound2sign/views/onboarding/onboarding_view.dart';
 import 'const.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/sound_detection_viewmodel.dart';
-import 'views/auth/auth_gate.dart';
 
 class Sound2SignApp extends StatelessWidget {
   const Sound2SignApp({super.key});
